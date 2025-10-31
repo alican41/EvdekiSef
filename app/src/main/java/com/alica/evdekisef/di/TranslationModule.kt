@@ -16,10 +16,11 @@ object TranslationModule {
     @Provides
     @Singleton
     fun provideTranslatorOptions(): TranslatorOptions {
-        // Kaynak dil Türkçe, hedef dil İngilizce
+        // !!! HATA BURADAYDI - ŞİMDİ DÜZELTİLDİ !!!
+        // Kaynak dili İngilizce, hedef dili Türkçe olarak ayarlıyoruz.
         return TranslatorOptions.Builder()
-            .setSourceLanguage("tr")
-            .setTargetLanguage("en")
+            .setSourceLanguage("en") // ESKİSİ: "tr"
+            .setTargetLanguage("tr") // ESKİSİ: "en"
             .build()
     }
 
@@ -28,11 +29,10 @@ object TranslationModule {
     fun provideTranslator(options: TranslatorOptions): Translator {
         val translator = Translation.getClient(options)
 
-        // Uygulama başlarken çeviri modelinin indirilmesini tetikliyoruz.
-        // Bu, kullanıcının ilk aramasında gecikme yaşamasını engeller.
+        // Uygulama başlarken YENİ (EN->TR) modelin indirilmesini tetikliyoruz.
         translator.downloadModelIfNeeded()
             .addOnSuccessListener {
-                println("ML Kit TR-EN modeli başarıyla indirildi veya zaten mevcuttu.")
+                println("ML Kit EN->TR modeli başarıyla indirildi veya zaten mevcuttu.")
             }
             .addOnFailureListener { exception ->
                 println("ML Kit model indirme hatası: $exception")

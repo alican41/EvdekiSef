@@ -4,111 +4,112 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.alica.evdekisef.data.model.RecipeSearchResult
-import com.alica.evdekisef.ui.home.components.IngredientSelectionSheet // YENİ İÇERİĞİ IMPORT ET
-
-// Diğer import'lar...
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.alica.evdekisef.data.model.FirestoreRecipe
+import com.alica.evdekisef.ui.home.components.IngredientSelectionSheet // GERİ GELDİ
 import kotlinx.coroutines.launch
-
+import com.alica.evdekisef.data.model.RecipeMatchInfo
+import com.alica.evdekisef.ui.core.HomeStrings // YENİ İMPORT
+import com.alica.evdekisef.ui.home.components.IngredientSelectionSheet
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onRecipeClick: (Int) -> Unit
+    onLogout: () -> Unit,
+    onRecipeClick: (String) -> Unit,
+    onNavigateToAdmin: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val langCode = viewModel.langCode
+    val strings = viewModel.strings // Dile göre metinler
     val selectedCount by viewModel.selectedIngredients.collectAsState()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var isSheetOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
-    // --- 1. KAYDIRMA DAVRANIŞINI (SCROLL BEHAVIOR) TANIMLA ---
-    // Bu, TopAppBar'ın kaydırmayı "dinlemesini" sağlar.
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
     Scaffold(
-        // --- 2. SCAFFOLD'A nestedScroll MODIFIER'INI EKLE ---
-        // TopAppBar'ın kaydırmadan haberdar olması için.
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-
         topBar = {
             TopAppBar(
-                title = { Text("Evdeki Şef") },
+                title = { Text(strings.title) }, // Dile göre
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Çıkış Yap")
+                    }
+                },
                 actions = {
                     Button(
                         onClick = { isSheetOpen = true },
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = "Malzemeler",
-                            modifier = Modifier.size(ButtonDefaults.IconSize)
-                        )
+                        Icon(Icons.Default.Menu, contentDescription = strings.ingredients, modifier = Modifier.size(ButtonDefaults.IconSize))
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Malzemeler (${selectedCount.size})")
+                        Text("${strings.ingredients} (${selectedCount.size})") // Dile göre
                     }
-                },
-                // --- 3. TOPAPPBAR'A DAVRANIŞI VE RENKLERİ EKLE ---
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    // Kaydırma olmadığında (en üstte)
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    // Kaydırma başladığında TopAppBar'ın alacağı renk
-                    // Bu renk hem light hem dark mode'da arka plandan farklı ve belirgindir.
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
+                    IconButton(onClick = onNavigateToAdmin) {
+                        Icon(Icons.Default.Settings, contentDescription = "Admin")
+                    }
+                }
             )
         }
-    ) { innerPadding -> // Adını 'padding' yerine 'innerPadding' olarak değiştirdik
+    ) { innerPadding ->
 
-        // --- SONUÇ ALANI ---
         Box(
             modifier = Modifier
-                // 4. Scaffold'dan gelen iç boşluğu (innerPadding) buraya uygula
                 .padding(innerPadding)
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             when (val state = uiState) {
-                // ... (when bloğunun içi aynı, DEĞİŞMEDİ)
-                is HomeViewModel.HomeUiState.Loading -> {
+                is HomeUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
                 }
-                is HomeViewModel.HomeUiState.Success -> {
-                    // RecipeList'in artık padding almasına gerek yok,
-                    // çünkü Box zaten padding'i aldı.
-                    RecipeList(
-                        recipes = state.recipes,
-                        onRecipeClick = onRecipeClick)
+                // --- YENİ DURUM ---
+                is HomeUiState.Empty -> {
+                    Text(
+                        text = strings.prompt, // Dile göre
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(32.dp)
+                    )
                 }
-                is HomeViewModel.HomeUiState.Error -> {
+                is HomeUiState.Success -> {
+                    RecipeList(
+                        matchedRecipes = state.matchedRecipes,
+                        langCode = langCode,
+                        strings = strings, // Metinleri yolla
+                        onRecipeClick = onRecipeClick
+                    )
+                }
+                is HomeUiState.Error -> {
                     Text(
                         text = state.message,
                         color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                }
-                is HomeViewModel.HomeUiState.Empty -> {
-                    Text(
-                        text = "Tarifleri görmek için yukarıdaki 'Malzemeler' butonuna basın.",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 16.dp)
                     )
@@ -117,7 +118,6 @@ fun HomeScreen(
         }
     }
 
-    // --- BOTTOM SHEET (DEĞİŞMEDİ) ---
     if (isSheetOpen) {
         ModalBottomSheet(
             onDismissRequest = { isSheetOpen = false },
@@ -126,9 +126,7 @@ fun HomeScreen(
             IngredientSelectionSheet(
                 onSearchClicked = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            isSheetOpen = false
-                        }
+                        if (!sheetState.isVisible) { isSheetOpen = false }
                     }
                 }
             )
@@ -136,61 +134,66 @@ fun HomeScreen(
     }
 }
 
-// --- RecipeList'ten GEREKSİZ PADDING'İ KALDIR ---
 @Composable
-fun RecipeList(recipes: List<RecipeSearchResult>,
-               onRecipeClick: (Int) -> Unit) {
+fun RecipeList(
+    matchedRecipes: List<RecipeMatchInfo>,
+    langCode: String,
+    strings: HomeStrings, // YENİ
+    onRecipeClick: (String) -> Unit
+) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        // 'contentPadding'i güncelliyoruz, artık sadece alt boşluk yeterli.
         contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
     ) {
-        items(recipes) { recipe ->
+        items(matchedRecipes) { matchInfo ->
             RecipeItemCard(
-                recipe = recipe,
-                onRecipeClick = onRecipeClick)
+                matchInfo = matchInfo,
+                langCode = langCode,
+                strings = strings, // YENİ
+                onRecipeClick = onRecipeClick
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecipeItemCard(recipe: RecipeSearchResult,
-                   onRecipeClick: (Int) -> Unit) {
+fun RecipeItemCard(
+    matchInfo: RecipeMatchInfo,
+    langCode: String,
+    strings: HomeStrings, // YENİ
+    onRecipeClick: (String) -> Unit
+) {
+    val recipe = matchInfo.recipe
+    val title = (if (langCode == "TR" && recipe.title_tr.isNotBlank()) recipe.title_tr else recipe.title_en)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = {
-            onRecipeClick(recipe.id)
-        },
+        onClick = { onRecipeClick(recipe.id.toString()) },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(recipe.image)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = recipe.title,
+                model = ImageRequest.Builder(LocalContext.current).data(recipe.imageUrl).crossfade(true).build(),
+                contentDescription = title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
+                modifier = Modifier.fillMaxWidth().height(180.dp)
             )
-
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = recipe.title,
+                    text = title.ifEmpty { recipe.title_en },
                     style = MaterialTheme.typography.titleLarge
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val missingCount = recipe.missedIngredientCount
+                // "Eksik Malzeme" metni artık dil desteğiyle geliyor
+                val missingCount = matchInfo.missingCount
                 Text(
                     text = if (missingCount == 0) {
-                        "Tüm malzemeler evde var!"
+                        strings.allIngredientsAvailable
                     } else {
-                        "$missingCount eksik malzeme"
+                        strings.missingCount(missingCount)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (missingCount == 0) Color(0xFF008000) else MaterialTheme.colorScheme.error

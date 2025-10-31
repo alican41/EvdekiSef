@@ -6,34 +6,46 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.alica.evdekisef.ui.admin.AdminScreen // Admin ekranı hala burada
 import com.alica.evdekisef.ui.detail.DetailScreen
 import com.alica.evdekisef.ui.home.HomeScreen
 
-// Rotalarımızı tanımlıyoruz
 object Routes {
     const val HOME = "home"
-    // {recipeId} diyerek buraya bir argüman geleceğini belirtiyoruz
+    const val ADMIN = "admin"
+    // ID artık Int değil, String (Document ID) olacak
     const val DETAIL = "detail/{recipeId}"
 
-    // Argümanı kolayca doldurmak için yardımcı fonksiyon
-    fun detailRoute(recipeId: Int) = "detail/$recipeId"
+    fun detailRoute(recipeId: String) = "detail/$recipeId"
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    onLogout: () -> Unit // YENİ: Logout fonksiyonunu aldık
+) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME // Uygulama bu ekrandan başlasın
+        startDestination = Routes.HOME // Başlangıç ekranı artık HOME
     ) {
+
+        // Admin Ekranı Rotası (Hala erişilebilir)
+        composable(Routes.ADMIN) {
+            AdminScreen()
+        }
+
         // Ana Ekran Rotası
         composable(Routes.HOME) {
             HomeScreen(
-                // HomeScreen'den bir tıklama gelirse
-                // recipeId'yi alıp detay rotasına yönlendir
+                onLogout = onLogout, // Logout'u UI'a iletiyoruz
                 onRecipeClick = { recipeId ->
+                    // ID'yi (String) yolluyoruz
                     navController.navigate(Routes.detailRoute(recipeId))
+                },
+                onNavigateToAdmin = {
+                    // (Gizli admin ekranına gitmek için bir yol)
+                    navController.navigate(Routes.ADMIN)
                 }
             )
         }
@@ -41,15 +53,13 @@ fun AppNavigation() {
         // Detay Ekranı Rotası
         composable(
             route = Routes.DETAIL,
-            arguments = listOf(navArgument("recipeId") { // 'recipeId' argümanını tanımla
-                type = NavType.IntType
+            arguments = listOf(navArgument("recipeId") {
+                type = NavType.StringType // DEĞİŞTİ: Artık String
             })
         ) {
-            // (ViewModel, Hilt ve savedStateHandle sayesinde
-            // 'recipeId'yi otomatik olarak alacak)
             DetailScreen(
                 onNavigateBack = {
-                    navController.popBackStack() // Geri tuşu
+                    navController.popBackStack()
                 }
             )
         }

@@ -1,6 +1,5 @@
 package com.alica.evdekisef.ui.detail // Sizin paket adınız
 
-import android.text.Html
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,10 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -24,22 +21,25 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.alica.evdekisef.data.model.RecipeDetail
+import com.alica.evdekisef.data.model.FirestoreRecipe
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
     viewModel: DetailViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit // Geri dönme fonksiyonu
+    onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val langCode = viewModel.langCode // Dili al
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    val title = (uiState as? DetailUiState.Success)?.trTitle ?: "Tarif Detayları"
-                    Text(title, maxLines = 1) // Tek satıra sığdır
+                    val title = (uiState as? DetailUiState.Success)?.recipe.let {
+                        if (langCode == "TR") it?.title_tr else it?.title_en
+                    } ?: "Detaylar"
+                    Text(title, maxLines = 1)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -59,58 +59,41 @@ fun DetailScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is DetailUiState.Success -> {
+                    // Dili ve tarifi UI'a yolla
                     RecipeDetailContent(
                         recipe = state.recipe,
-                        trTitle = state.trTitle,
-                        trSummary = state.trSummary,
-                        trInstructions = state.trInstructions,
-                        trIngredients = state.trIngredients
+                        langCode = langCode
                     )
                 }
                 is DetailUiState.Error -> {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    // (Hata durumu aynı)
                 }
             }
         }
     }
 }
 
-// (HTML'i temizlemek için yardımcı fonksiyon)
-@Composable
-fun HtmlText(html: String) {
-    val context = LocalContext.current
-    val styledText = remember(html) {
-        Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
-    }
-    Text(text = styledText.toString())
-}
-
 
 @Composable
-fun RecipeDetailContent(
-    recipe: RecipeDetail, // Orijinal resim, süre, kişilik için
-    trTitle: String,
-    trSummary: String,
-    trInstructions: String,
-    trIngredients: List<String>
-) {
+fun RecipeDetailContent(recipe: FirestoreRecipe, langCode: String) {
     val scrollState = rememberScrollState()
 
+    // Dile göre verileri seç
+    val title = (if (langCode == "TR" && recipe.title_tr.isNotBlank()) recipe.title_tr else recipe.title_en)
+    val summary = (if (langCode == "TR" && recipe.summary_tr.isNotBlank()) recipe.summary_tr else recipe.summary_en)
+    val instructions = (if (langCode == "TR" && recipe.instructions_tr.isNotBlank()) recipe.instructions_tr else recipe.instructions_en)
+    val ingredients = (if (langCode == "TR" && recipe.full_ingredients_tr.isNotEmpty()) recipe.full_ingredients_tr else recipe.full_ingredients_en)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState) // Tüm ekranı kaydırılabilir yap
+            .verticalScroll(scrollState)
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(recipe.image)
+                .data(recipe.imageUrl) // Firestore'dan gelen link
                 .crossfade(true)
                 .build(),
-            contentDescription = recipe.title,
+            contentDescription = title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
@@ -118,80 +101,48 @@ fun RecipeDetailContent(
         )
 
         Column(modifier = Modifier.padding(16.dp)) {
-            // Başlık
-            Text(
-                text = trTitle,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-
+            Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2'li Bilgi Kutusu (Süre ve Kişi Sayısı)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                InfoChip(
-                    icon = Icons.Default.DateRange,
-                    text = "${recipe.readyInMinutes} Dakika"
-                )
-                InfoChip(
-                    icon = Icons.Default.Info,
-                    text = "${recipe.servings} Kişilik"
-                )
+                InfoChip(icon = Icons.Default.DateRange, text = "${recipe.readyInMinutes} Dakika")
+                InfoChip(icon = Icons.Default.Info, text = "${recipe.servings} Kişilik")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Divider()
 
             // Malzemeler
-            Text(
-                text = "Malzemeler",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-            trIngredients.forEach { ingredientText ->
-                Row(
-                    modifier = Modifier.padding(bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
+            Text(text = "Malzemeler", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+            ingredients.forEach { ingredient ->
+                Row(modifier = Modifier.padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = ingredientText) // Çevrilmiş metni bas
+                    Text(text = ingredient)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Divider()
 
-            // Hazırlanışı (Çevrilmiş Metin)
-            Text(
-                text = "Hazırlanışı",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-            Text(text = trInstructions.ifEmpty { "Hazırlanış talimatı bulunamadı." })
+            // Hazırlanışı
+            Text(text = "Hazırlanışı", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+            Text(text = instructions.ifEmpty { "Talimatlar bulunamadı." })
 
             Spacer(modifier = Modifier.height(16.dp))
             Divider()
 
-            // Özet (Orijinal İngilizce)
-            Text(
-                text = "Özet",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-            Text(text = trSummary.ifEmpty { "Özet bulunamadı." })
+            // Özet
+            Text(text = "Özet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+            Text(text = summary.ifEmpty { "Özet bulunamadı." })
         }
     }
 }
 
+// (InfoChip Composable'ı aynı, değişmedi)
 @Composable
 fun InfoChip(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {

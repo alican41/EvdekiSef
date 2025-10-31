@@ -9,9 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -19,35 +17,31 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.alica.evdekisef.ui.home.HomeViewModel
-import androidx.compose.foundation.layout.FlowRow
+import com.google.accompanist.flowlayout.FlowRow
 
-/**
- * Alttan açılan malzeme seçim paneli.
- * Kendi ViewModel'ini hiltViewModel() ile alır (HomeScreen ile aynı instance).
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IngredientSelectionSheet(
     viewModel: HomeViewModel = hiltViewModel(),
-    onSearchClicked: () -> Unit // "Tarif Bul" butonuna basıldığında
+    onSearchClicked: () -> Unit
 ) {
-    // State'leri doğrudan ViewModel'den topluyoruz
-    val popularIngredients by viewModel.popularIngredients.collectAsState()
+    // !!! DEĞİŞİKLİK BURADA: Değişken adı netleştirildi !!!
+    val allIngredientKeywords by viewModel.allIngredientKeywords.collectAsState()
     val selectedIngredients by viewModel.selectedIngredients.collectAsState()
-    val customIngredientText by viewModel.customIngredientText.collectAsState()
+    var customIngredientText by remember { mutableStateOf("") }
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Panel içeriği
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .navigationBarsPadding() // (Alt sistem çubuğu için boşluk)
+            .navigationBarsPadding()
     ) {
 
-        // --- BÖLÜM 1: ÖZEL MALZEME GİRİŞİ (TextField) ---
+        // --- BÖLÜM 1: ÖZEL MALZEME GİRİŞİ ---
         Text(
-            text = "Malzeme Ekle (örn: Pırasa):",
+            text = "Malzeme Ekle:",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -57,18 +51,20 @@ fun IngredientSelectionSheet(
         ) {
             OutlinedTextField(
                 value = customIngredientText,
-                onValueChange = viewModel::onCustomTextChanged,
+                onValueChange = { customIngredientText = it },
                 label = { Text("Malzeme yazın") },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    viewModel.addCustomIngredient()
+                    viewModel.addIngredient(customIngredientText)
+                    customIngredientText = ""
                     keyboardController?.hide()
                 })
             )
             IconButton(onClick = {
-                viewModel.addCustomIngredient()
+                viewModel.addIngredient(customIngredientText)
+                customIngredientText = ""
                 keyboardController?.hide()
             }) {
                 Icon(Icons.Default.Add, contentDescription = "Ekle")
@@ -77,7 +73,7 @@ fun IngredientSelectionSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- BÖLÜM 2: SEPETİNİZ (Seçilenler - FlowRow) ---
+        // --- BÖLÜM 2: SEPETİNİZ (FlowRow) ---
         Text(
             text = "Sepetiniz (${selectedIngredients.size}):",
             style = MaterialTheme.typography.titleSmall
@@ -85,7 +81,9 @@ fun IngredientSelectionSheet(
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp)
+                .padding(top = 8.dp),
+            mainAxisSpacing = 8.dp,
+            crossAxisSpacing = 4.dp
         ) {
             if (selectedIngredients.isEmpty()) {
                 Text("Sepetiniz boş", style = MaterialTheme.typography.bodySmall)
@@ -108,20 +106,21 @@ fun IngredientSelectionSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- BÖLÜM 3: HIZLI EKLE (Popüler - LazyRow) ---
+        // --- BÖLÜM 3: HIZLI EKLE (LazyRow) ---
         Text(
-            text = "Hızlı Ekle:",
+            text = "Hızlı Ekle (Normal Malzemeler):", // Başlığı netleştirdim
             style = MaterialTheme.typography.titleSmall
         )
         LazyRow(
             contentPadding = PaddingValues(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val availablePopular = popularIngredients.filter { !selectedIngredients.contains(it) }
-            items(availablePopular) { ingredient ->
+            // !!! DEĞİŞİKLİK BURADA: 'allIngredientKeywords' (normal) kullanılıyor !!!
+            val availableKeywords = allIngredientKeywords.filter { !selectedIngredients.contains(it) }
+            items(availableKeywords) { keyword ->
                 SuggestionChip(
-                    onClick = { viewModel.addPopularIngredient(ingredient) },
-                    label = { Text(ingredient) }
+                    onClick = { viewModel.addIngredient(keyword) },
+                    label = { Text(keyword) }
                 )
             }
         }
@@ -131,13 +130,13 @@ fun IngredientSelectionSheet(
         // --- ARAMA BUTONU ---
         Button(
             onClick = {
-                viewModel.performSearch() // 1. Aramayı tetikle
-                onSearchClicked()      // 2. Paneli kapat (HomeScreen'e sinyal gönder)
+                viewModel.performSearch() // Filtrelemeyi tetikle
+                onSearchClicked()         // Paneli kapat
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = selectedIngredients.isNotEmpty()
+            enabled = selectedIngredients.isNotEmpty() // Sepet boşsa arama yapmasın
         ) {
-            Text("Tarifleri Göster (${selectedIngredients.size})")
+            Text("Sonuçları Göster (${selectedIngredients.size})")
         }
     }
 }
