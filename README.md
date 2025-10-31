@@ -74,11 +74,11 @@ Elindeki malzemeleri gir, uygulama **240+ tarif** arasından en uygun olanları 
 
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/67084e78-dc45-496e-a5da-c6ed00f9f351" width="170"/>
-<img src="https://github.com/user-attachments/assets/8b140728-b61e-4170-ab9b-c650ceb513da" width="170"/>
-<img src="https://github.com/user-attachments/assets/f08f0bad-01b0-481d-a8c1-995ac29a4bb0" width="170"/>
-<img src="https://github.com/user-attachments/assets/c46b035d-ab80-4580-a403-0d3d08503397" width="170"/>
-<img src="https://github.com/user-attachments/assets/3ae6c7bd-4ecd-4140-8586-4688268b7824" width="170"/>
+<img src="https://github.com/user-attachments/assets/67084e78-dc45-496e-a5da-c6ed00f9f351" width="150"/>
+<img src="https://github.com/user-attachments/assets/8b140728-b61e-4170-ab9b-c650ceb513da" width="150"/>
+<img src="https://github.com/user-attachments/assets/f08f0bad-01b0-481d-a8c1-995ac29a4bb0" width="150"/>
+<img src="https://github.com/user-attachments/assets/c46b035d-ab80-4580-a403-0d3d08503397" width="150"/>
+<img src="https://github.com/user-attachments/assets/3ae6c7bd-4ecd-4140-8586-4688268b7824" width="150"/>
 
 **Giriş & Dil Seçimi** | **Ana Ekran** | **Malzeme Paneli** | **Sonuçlar** | **Tarif Detayı**
 
